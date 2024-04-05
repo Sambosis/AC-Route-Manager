@@ -179,8 +179,8 @@ io.on('connection', (socket) => {
 });
 // Function to update customer route in the database
 function updateCustomerRoute(custId, newRt, newDay, socket) {
-  const sql = `UPDATE route_info SET new_rt = ?, new_day = ? WHERE cust = ?`;
-  db.run(sql, [newRt, newDay, custId], function (err) {
+  const sql = `UPDATE route_info SET new_rt = ?, rt = ?, new_day = ?, day = ? WHERE cust = ?`;
+  db.run(sql, [newRt, newRt, newDay, newDay, custId], function (err) {
     if (err) {
       console.error('Database error:', err.message);
       socket.emit('updateFailed', { custId: custId, message: "Database error" });
