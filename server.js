@@ -2,77 +2,68 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const sqlite3 = require('sqlite3').verbose();
-const { exec } = require('child_process');
-const PORT = process.env.PORT || 3000;
-const path = require('path');
 const multer = require('multer');
-// Configure storage for multer
-const storage = multer.diskStorage({
-  // Specify the destination directory where files should be stored
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  // Specify the name of the file on disk
-  filename: function (req, file, cb) {
-    // Use the original file name in the uploads folder
-    cb(null, file.originalname);
-  }
-});
-
-
-const upload = multer({ dest: 'uploads/' });
 const XLSX = require('xlsx');
 const { spawn } = require('child_process');
 
+const PORT = process.env.PORT || 3000;
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Create multer instance configured with the storage engine
-//const upload = multer({ storage: storage });
+const upload = multer({ dest: 'uploads/' })
+
+app.use(express.static('public'));
+app.use(express.json());
 
 app.get('/upload', (req, res) => {
   res.sendFile(__dirname + '/upload.html');
 });
 
 app.post('/upload', upload.single('routeFile'), (req, res) => {
+  console.log('Received file upload request');
+
   if (req.file) {
-    console.log(`Received file: ${req.file.path}`);
+    console.log('File received:', req.file);
 
-    // Read the Excel file
-    const workbook = XLSX.readFile(req.file.path);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, skipRows: 2 });
+    try {
+      const workbook = XLSX.readFile(req.file.path);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
 
-    // Convert the data to CSV format
-    const csv = XLSX.utils.sheet_to_csv(worksheet, { skipRows: 2 });
+      try {
+        const csv = XLSX.utils.sheet_to_csv(worksheet, { skipRows: 2 });
+        const csvFilePath = `${req.file.path}.csv`;
+        require('fs').writeFileSync(csvFilePath, csv);
 
-    // Save the CSV file
-    const csvFilePath = `${req.file.path}.csv`;
-    require('fs').writeFileSync(csvFilePath, csv);
+        const pythonProcess = spawn('python', ['process_data.py', csvFilePath]);
 
-    // Spawn a child process to run the Python script
-    const pythonProcess = spawn('python', ['process_data.py', csvFilePath]);
+        pythonProcess.stdout.on('data', (data) => {
+          console.log(`Python script output: ${data}`);
+        });
 
-    pythonProcess.stdout.on('data', (data) => {
-      console.log(`Python script output: ${data}`);
-    });
+        pythonProcess.stderr.on('data', (data) => {
+          console.error(`Python script error: ${data}`);
+        });
 
-    pythonProcess.stderr.on('data', (data) => {
-      console.error(`Python script error: ${data}`);
-    });
-
-    pythonProcess.on('close', (code) => {
-      console.log(`Python script exited with code ${code}`);
-      res.send('File uploaded and processed successfully.');
-    });
+        pythonProcess.on('close', (code) => {
+          console.log(`Python script exited with code ${code}`);
+          res.send('File uploaded and processed successfully.');
+        });
+      } catch (error) {
+        console.error('Error converting to CSV:', error);
+        res.status(500).send('Error converting to CSV');
+      }
+    } catch (error) {
+      console.error('Error reading Excel file:', error);
+      res.status(500).send('Error reading Excel file');
+    }
   } else {
     res.status(400).send('No file uploaded.');
   }
 });
-// Database connection
+
 let db = new sqlite3.Database('./myapp.db', (err) => {
   if (err) {
     console.error('Error connecting to the SQLite database.', err.message);
@@ -80,9 +71,6 @@ let db = new sqlite3.Database('./myapp.db', (err) => {
     console.log('Connected to the SQLite database.');
   }
 });
-
-app.use(express.static('public'));
-app.use(express.json());
 
 // Endpoint to get the initial state of routes, simplified to focus on RT and DAY
 app.get('/aggregated-routes', (req, res) => {
