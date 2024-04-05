@@ -1,0 +1,70 @@
+<!-- FILEPATH: /root/kg/drive/rereoute/ReReoute/scriptRoute/rsite/public/mapView.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Map View</title>
+<link href="style.css" rel="stylesheet"> <!-- Assuming your styles are here -->
+<style>
+  body, html {
+    height: 100%;
+    margin: 0;
+  }
+
+  .navbar {
+  overflow: hidden;
+  background-color: #333; /* Dark background color */
+  position: fixed; /* Fixed/sticky position */
+  top: 0; /* Position at the top */
+  width: 100%; /* Full width */
+  z-index: 1000; /* Ensure navbar is above other content */
+  }
+
+  .navbar a {
+    float: left; /* Arrange items horizontally */
+    display: block; /* Full block display */
+    color: #f2f2f2; /* Light text color */
+    text-align: center; /* Center text */
+    padding: 14px 20px; /* Padding for spacing */
+    text-decoration: none; /* No underline on links */
+    font-size: 17px; /* Increase font size */
+  }
+
+  /* Change the color of links on hover */
+  .navbar a:hover {
+    background-color: #ddd; /* Light background on hover */
+    color: black; /* Dark text on hover */
+  }
+
+  /* Add a color to the active/current link */
+  .navbar a.active {
+    background-color: #04AA6D;
+    color: white;
+  }
+
+
+  iframe {
+    width: 100%;
+    height: calc(100% - 48px); /* Adjust based on the navbar's height */
+    border: none;
+    position: absolute;
+    top: 48px; /* Adjust based on the navbar's height */
+    left: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <a href="/index.html">Route Manager</a>
+  <a href="/mapView.html" class="active">Map View</a> <!-- Assuming the navbar link points to this wrapper page -->
+  <a href="/upload.html">Upload Route Info</a>
+
+</div>
+
+<iframe src="/map.html" title="Map"></iframe>
+
+</body>
+</html>

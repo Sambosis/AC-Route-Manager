@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload Route Info</title>
+
+<style>
+.navbar {
+  overflow: hidden;
+  background-color: #333; /* Dark background color */
+  position: fixed; /* Fixed/sticky position */
+  top: 0; /* Position at the top */
+  width: 100%; /* Full width */
+  z-index: 1000; /* Ensure navbar is above other content */
+}
+
+.navbar a {
+  float: left; /* Arrange items horizontally */
+  display: block; /* Full block display */
+  color: #f2f2f2; /* Light text color */
+  text-align: center; /* Center text */
+  padding: 14px 20px; /* Padding for spacing */
+  text-decoration: none; /* No underline on links */
+  font-size: 17px; /* Increase font size */
+}
+
+/* Change the color of links on hover */
+.navbar a:hover {
+  background-color: #ddd; /* Light background on hover */
+  color: black; /* Dark text on hover */
+}
+
+/* Add a color to the active/current link */
+.navbar a.active {
+  background-color: #04AA6D;
+  color: white;
+}
+</style>
+</head>
+<div class="navbar">
+  <a href="/index.html" class="active">Route Manager</a>
+  <a href="/mapView.html">Map View</a>
+  <a href="/upload.html">Upload Route Info</a>
+
+</div>
+
+<body>
+
+<h2>Upload Route Information</h2>
+
+<form action="/upload" method="post" enctype="multipart/form-data">
+  <input type="file" name="routeFile" required>
+  <button type="submit">Upload and Process</button>
+</form>
+
+</body>
+</html>

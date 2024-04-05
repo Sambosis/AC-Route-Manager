@@ -1,0 +1,114 @@
+
+<!-- FILEPATH: /root/kg/drive/rereoute/ReReoute/scriptRoute/rsite/public/mapByDay.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@turf/turf"></script>
+    <style>
+        /* Default mobile styles */
+        #map {
+            width: 100%; /* Full width */
+            height: 400px; /* Adjust height as needed for mobile */
+        }
+
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            #map {
+                width: 80%; /* Adjust width as needed for desktop */
+                height: 1200px; /* Adjust height as needed for desktop */
+                margin: 0 auto; /* Center the map */
+            }
+        }
+      #dayFilter {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background-color: white;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    </style>
+</head>
+
+<body>
+  <h1>Map Filtered by Day</h1>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map').setView([39.5, -76.6], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 20,
+    }).addTo(map);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const selectedDay = urlParams.get('day');
+
+    fetch('/api/routes')
+      .then(response => response.json())
+      .then(routes => {
+        const colorPalette = ["#FF5733", "#33FF57", "#3357FF", "#F333FF", "#33FFF3"]; // Add more colors as needed
+        const routeColors = {}; // Store colors for each route
+
+        // Filter routes by the selected day
+        const filteredRoutes = routes.filter(route => route.new_day === selectedDay);
+
+        // Group points by route
+        const groups = {};
+        filteredRoutes.forEach(route => {
+          const key = route.new_rt;
+          if (!groups[key]) {
+            groups[key] = { points: [], data: [] }; // Store the original data for tooltip content
+          }
+          // Ensure coordinates are numbers and add to the 'points' array
+          const latitude = Number(route.latitude);
+          const longitude = Number(route.longitude);
+          if (!isNaN(latitude) && !isNaN(longitude)) {
+            groups[key].points.push([longitude, latitude]);
+            groups[key].data.push(route); // Keep the entire route data
+          }
+          // Assign a unique color to each new_rt
+          if (!routeColors[route.new_rt]) {
+            routeColors[route.new_rt] = colorPalette[Object.keys(routeColors).length % colorPalette.length];
+          }
+        });
+
+        // For each group, calculate the convex hull and add markers with tooltips
+        Object.entries(groups).forEach(([key, group]) => {
+          if (group.points.length > 2) { // Convex hull calculation requires at least 3 points
+            const feature = turf.convex(turf.featureCollection(group.points.map(point => turf.point(point))));
+            L.geoJSON(feature, {
+              style: function () { return {color: routeColors[key], weight: .7}; }
+            }).addTo(map);
+          }
+          // Add circle markers for each point
+          group.data.forEach(route => {
+            const latitude = Number(route.latitude);
+            const longitude = Number(route.longitude);
+            console.log("route: ", route);
+            console.log("latitude: ", latitude, "longitude: ", longitude);
+            if (!isNaN(latitude) && !isNaN(longitude)) {
+              L.circleMarker([latitude, longitude], {
+                radius: 3,
+                color: routeColors[route.new_rt],
+                fillColor: routeColors[route.new_rt],
+                fillOpacity: 0.05
+              })
+              .bindPopup(`
+                <strong>${route.cust_name}</strong><br>
+                Route: ${route.new_rt}, Day: ${route.new_day}<br>
+                Address: ${route.address}<br>
+                Sales: $${route.machine}<br>
+                Companion: $${route.companion}
+              `)
+              .addTo(map);
+            }
+          });
+        });
+      })
+      .catch(error => console.error('Error fetching route data:', error));
+  </script>
+</body>
+</html>

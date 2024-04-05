@@ -1,0 +1,157 @@
+<!-- FILEPATH: /root/kg/drive/rereoute/ReReoute/scriptRoute/rsite/public/map.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@turf/turf"></script>
+    <style>
+        /* Default mobile styles */
+        #map {
+            width: 100%; /* Full width */
+            height: 400px; /* Adjust height as needed for mobile */
+        }
+
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            #map {
+                width: 80%; /* Adjust width as needed for desktop */
+                height: 1200px; /* Adjust height as needed for desktop */
+                margin: 0 auto; /* Center the map */
+            }
+        }
+      #dayFilter {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background-color: white;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    </style>
+</head>
+<body>
+    <h1>Welcome to My Map</h1>
+      <div id="dayFilter">
+    <label for="daySelect">Filter by Day:</label>
+    <select id="daySelect">
+      <option value="">All Days</option>
+      <option value="1">Day 1</option>
+      <!-- continue through Day 20 -->
+      <option value="2">Day 2</option>
+      <option value="3">Day 3</option>
+      <option value="4">Day 4</option>
+      <option value="5">Day 5</option>
+      <option value="6">Day 6</option>
+      <option value="7">Day 7</option>
+      <option value="8">Day 8</option>
+      <option value="9">Day 9</option>
+      <option value="10">Day 10</option>
+      <option value="11">Day 11</option>
+      <option value="12">Day 12</option>
+      <option value="13">Day 13</option>
+      <option value="14">Day 14</option>
+      <option value="15">Day 15</option>
+      <option value="16">Day 16</option>
+      <option value="17">Day 17</option>
+      <option value="18">Day 18</option>
+      <option value="19">Day 19</option>
+      <option value="20">Day 20</option>
+      
+    </select>
+    <button id="filterButton">Filter</button>
+  </div>
+  <div id="map"></div>
+    <div id="map"></div>
+
+<script>
+var map = L.map('map').setView([39.5, -76.6], 9);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 20,
+}).addTo(map);
+    const daySelect = document.getElementById('daySelect');
+    const filterButton = document.getElementById('filterButton');
+
+    filterButton.addEventListener('click', () => {
+      const selectedDay = daySelect.value;
+      if (selectedDay) {
+        window.location.href = `/mapByDay.html?day=${selectedDay}`;
+      } else {
+        window.location.href = '/map.html';
+      }
+    });
+fetch('/api/routes')
+  .then(response => response.json())
+  .then(routes => {
+    const colorPalette = ["#FF5733", "#33FF57", "#3357FF", "#F333FF", "#33FFF3"]; // Add more colors as needed
+    const routeColors = {}; // Store colors for each route
+
+    // Group points by route and day
+    const groups = {};
+    routes.forEach(route => {
+      const key = `${route.new_rt}-${route.new_day}`;
+      if (!groups[key]) {
+        groups[key] = {
+          points: [],
+          data: [] // Store the original data for tooltip content
+        };
+      }
+      
+      // Ensure coordinates are numbers and add to the 'points' array
+      const latitude = Number(route.latitude);
+      const longitude = Number(route.longitude);
+      if (!isNaN(latitude) && !isNaN(longitude)) {
+        groups[key].points.push([longitude, latitude]);
+        groups[key].data.push(route); // Keep the entire route data
+      }
+
+      // Assign a unique color to each new_rt
+      if (!routeColors[route.new_rt]) {
+        routeColors[route.new_rt] = colorPalette[Object.keys(routeColors).length % colorPalette.length];
+      }
+    });
+
+    // For each group, calculate the convex hull and add markers with tooltips
+    Object.entries(groups).forEach(([key, group]) => {
+      if (group.points.length > 2) { // Convex hull calculation requires at least 3 points
+        const feature = turf.convex(turf.featureCollection(group.points.map(point => turf.point(point))));
+        L.geoJSON(feature, {
+          style: function () {
+            return {color: routeColors[key.split('-')[0]], weight: .9};
+          }
+        }).addTo(map);
+      }
+
+      // Add circle markers for each point
+      group.data.forEach(route => {
+        const latitude = Number(route.latitude);
+        const longitude = Number(route.longitude);
+        console.log("route: ", route)
+        console.log("latitude: ", latitude, "longitude: ", longitude)
+        if (!isNaN(latitude) && !isNaN(longitude)) {
+          L.circleMarker([latitude, longitude], {
+            radius: 3,
+            color: routeColors[route.new_rt],
+            fillColor: routeColors[route.new_rt],
+            fillOpacity: 0.05
+          })
+          .bindPopup(`
+            <strong>${route.cust_name}</strong><br>
+            Route: ${route.new_rt}, Day: ${route.new_day}<br>
+            Address: ${route.address}<br>
+            Sales: $${route.machine}<br>
+            Companion: $${route.companion}
+          `)
+          .addTo(map);
+        }
+      });
+    });
+  })
+  .catch(error => console.error('Error fetching route data:', error));
+</script>
+
+</body>
+</html>

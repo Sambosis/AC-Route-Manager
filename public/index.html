@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css?family=Inconsolata&effect=3d-float" rel="stylesheet">
+
+<title>Route Manager</title>
+<style>
+
+  body {
+    font-family: 'Open Sans', sans-serif;
+    color: #333;
+    background-color: #001963ab;
+    font-size: 12px;
+    margin: 0;
+    padding: 1px;
+
+  }
+
+  h1 {
+    color: #eaf8ff;
+    text-align: center;
+    font-weight: 600;
+    margin-bottom: 40px;
+    font-family: 'Inconsolata', sans-serif;
+    font-size: 98px;
+    text-shadow: 2px 2px 2px #aaa;
+  }
+
+  h2 {
+    align-content: stretch;
+    align-items: stretch;
+    align-tracks: stretch;
+    color: #ffffff;
+    background-color: #007bff;
+    text-align: center;
+    font-weight: 700;
+    margin: 1px;
+    padding: 10px;
+    font-size: 2em;
+    border-radius: 18px;
+  }
+
+  .grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(800px, 1fr));
+    gap: 10px;
+    padding: 15x;
+    max-width: 1400px;
+    margin: 0 auto;
+    justify-content: flex-start;
+
+}
+
+
+
+ .route{
+  display: flex;
+  flex-direction: column;
+
+  background-color: #e9f4ff;
+  border: 2px solid #0501c156;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  margin: 5px;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+  text-align: center; /* Ensures that the text itself is also centered, helpful for inline or text content */
+} 
+
+
+  .route-day{
+  display: flex;
+  flex-direction: column;
+
+  background-color: #e9f4ff;
+  border: 2px solid #0501c156;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  margin: 5px;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+  text-align: center; /* Ensures that the text itself is also centered, helpful for inline or text content */
+} 
+  .customer {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  justify-self: flex-end;
+  justify-items: flex-end;
+
+    text-align: center; /* Ensures that the text itself is also centered, helpful for inline or text content */
+} 
+
+
+
+  .route-day:hover, .route:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.207);
+  }
+
+
+
+  .customer, .draggable {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    font: 1.2em sans-serif;
+    font-weight: bold;
+    border-radius: 12px;
+    padding: 3px;
+    margin: 1px;
+    cursor: grab;
+
+  }
+
+  .customer:hover, .draggable:hover {
+    background-color: #a0d0f0c4;
+    border: 1px solid #0501c156;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+ 
+  .droppable.dragover {
+    background-color: #cce5ff;
+  }
+
+
+  button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 4px;
+    margin: 2px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 300;
+    font-size: large;
+
+    transition: background-color 0.2s ease;
+  }
+
+  button:hover {
+    background-color: #0069d9;
+  }
+
+  /* Additional styling can be added here as needed */
+</style>
+<style>
+  .navbar {
+  overflow: hidden;
+  background-color: #333; /* Dark background color */
+  position: fixed; /* Fixed/sticky position */
+  top: 0; /* Position at the top */
+  width: 100%; /* Full width */
+  z-index: 1000; /* Ensure navbar is above other content */
+  }
+
+  .navbar a {
+    float: left; /* Arrange items horizontally */
+    display: block; /* Full block display */
+    color: #f2f2f2; /* Light text color */
+    text-align: center; /* Center text */
+    padding: 14px 20px; /* Padding for spacing */
+    text-decoration: none; /* No underline on links */
+    font-size: 17px; /* Increase font size */
+  }
+
+  /* Change the color of links on hover */
+  .navbar a:hover {
+    background-color: #ddd; /* Light background on hover */
+    color: black; /* Dark text on hover */
+  }
+
+  /* Add a color to the active/current link */
+  .navbar a.active {
+    background-color: #04AA6D;
+    color: white;
+  }
+</style>
+
+<link href="https://fonts.googleapis.com/css?family=Inconsolata&effect=3d-float" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css?family=Inconsolata&effect=outline" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+</head>
+
+<h1 class="	font-effect-3d-float">Route Manager</h1>
+
+<body>
+<div class="navbar">
+  <a href="/index.html" class="active">Route Manager</a>
+  <a href="/mapView.html">Map View</a>
+  <a href="/upload.html">Upload Route Info</a>
+
+</div>
+
+
+
+
+<div id="route-container" class="grid-container">
+  <!-- Route containers will be dynamically added here by the script.js -->
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
+
+</body>
+</html>
