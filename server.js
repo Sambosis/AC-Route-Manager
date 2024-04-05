@@ -6,6 +6,7 @@ const { exec } = require('child_process');
 const PORT = process.env.PORT || 3000;
 const path = require('path');
 const multer = require('multer');
+
 // Configure storage for multer
 const storage = multer.diskStorage({
   // Specify the destination directory where files should be stored
@@ -18,7 +19,6 @@ const storage = multer.diskStorage({
     cb(null, file.originalname);
   }
 });
-
 
 const app = express();
 const server = http.createServer(app);
@@ -60,7 +60,6 @@ let db = new sqlite3.Database('./myapp.db', (err) => {
 app.use(express.static('public'));
 app.use(express.json());
 
-
 // Endpoint to get the initial state of routes, simplified to focus on RT and DAY
 app.get('/aggregated-routes', (req, res) => {
   db.all(`SELECT rt, day, cust, cust_name FROM route_info GROUP BY rt, day, cust`, [], (err, rows) => {
@@ -82,6 +81,7 @@ app.get('/aggregated-routes', (req, res) => {
     res.json(aggregatedData);
   });
 });
+
 app.get('/api/routes', (req, res) => {
   const sql = `SELECT new_rt, new_day, cust_name, address, machine, companion, latitude, longitude FROM route_info`;
   db.all(sql, [], (err, rows) => {
@@ -107,9 +107,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('moveDayCustomers', ({ fromRt, fromDay, toRt, toDay }) => {
-    // Example SQL to move all customers
-    const moveSql = 'UPDATE route_info SET rt = ?, day = ? WHERE rt = ? AND day = ?';
-    db.run(moveSql, [toRt, toDay, fromRt, fromDay], function (err) {
+    // Example SQL to move all customers and update both rt/day and new_rt/new_day
+    const moveSql = 'UPDATE route_info SET rt = ?, new_rt = ?, day = ?, new_day = ? WHERE rt = ? AND day = ?';
+    db.run(moveSql, [toRt, toRt, toDay, toDay, fromRt, fromDay], function (err) {
       if (err) {
         console.error(err.message);
         socket.emit('operationFailed', { error: 'Database error during move' });
@@ -118,32 +118,30 @@ io.on('connection', (socket) => {
         io.emit('customersMoved', { fromRt, fromDay, toRt, toDay });
       }
     });
-
-
   });
 
   socket.on('swapDayCustomers', ({ firstRtDay, secondRtDay }) => {
     const tempRt = "TEMP";
     const tempDay = "0";
 
-    // Step 1: Move first group to temporary location
-    const moveToTempSql = 'UPDATE route_info SET rt = ?, day = ? WHERE rt = ? AND day = ?';
-    db.run(moveToTempSql, [tempRt, tempDay, firstRtDay.rt, firstRtDay.day], function (err) {
+    // Step 1: Move first group to temporary location and update both rt/day and new_rt/new_day
+    const moveToTempSql = 'UPDATE route_info SET rt = ?, new_rt = ?, day = ?, new_day = ? WHERE rt = ? AND day = ?';
+    db.run(moveToTempSql, [tempRt, tempRt, tempDay, tempDay, firstRtDay.rt, firstRtDay.day], function (err) {
       if (err) {
         console.error('Error moving first group to temp:', err.message);
         return;
       }
 
-      // Step 2: Move second group to first group's original RT/Day
-      db.run(moveToTempSql, [firstRtDay.rt, firstRtDay.day, secondRtDay.rt, secondRtDay.day], function (err) {
+      // Step 2: Move second group to first group's original RT/Day and update both rt/day and new_rt/new_day
+      db.run(moveToTempSql, [firstRtDay.rt, firstRtDay.rt, firstRtDay.day, firstRtDay.day, secondRtDay.rt, secondRtDay.day], function (err) {
         if (err) {
           console.error('Error moving second group to first group\'s original location:', err.message);
           return;
         }
 
-        // Step 3: Move first group from temp to second group's original RT/Day
-        const moveFromTempSql = 'UPDATE route_info SET rt = ?, day = ? WHERE rt = ? AND day = ?';
-        db.run(moveFromTempSql, [secondRtDay.rt, secondRtDay.day, tempRt, tempDay], function (err) {
+        // Step 3: Move first group from temp to second group's original RT/Day and update both rt/day and new_rt/new_day
+        const moveFromTempSql = 'UPDATE route_info SET rt = ?, new_rt = ?, day = ?, new_day = ? WHERE rt = ? AND day = ?';
+        db.run(moveFromTempSql, [secondRtDay.rt, secondRtDay.rt, secondRtDay.day, secondRtDay.day, tempRt, tempDay], function (err) {
           if (err) {
             console.error('Error moving first group from temp to second group\'s original location:', err.message);
             return;
@@ -156,27 +154,8 @@ io.on('connection', (socket) => {
       });
     });
   });
-
-
-  socket.on('moveDayCustomers', ({ fromRt, fromDay, toRt, toDay }) => {
-    // Example SQL to move all customers
-    const moveSql = 'UPDATE route_info SET rt = ?, day = ? WHERE rt = ? AND day = ?';
-    db.run(moveSql, [toRt, toDay, fromRt, fromDay], function (err) {
-      if (err) {
-        console.error(err.message);
-        socket.emit('operationFailed', { error: 'Database error during move' });
-      } else {
-        console.log(`Moved customers from RT ${fromRt}, Day ${fromDay} to RT ${toRt}, Day ${toDay}`);
-        io.emit('customersMoved', { fromRt, fromDay, toRt, toDay });
-      }
-    });
-  });
-
-
-
-
-
 });
+
 // Function to update customer route in the database
 function updateCustomerRoute(custId, newRt, newDay, socket) {
   const sql = `UPDATE route_info SET new_rt = ?, rt = ?, new_day = ?, day = ? WHERE cust = ?`;
@@ -195,4 +174,5 @@ function updateCustomerRoute(custId, newRt, newDay, socket) {
     }
   });
 }
+
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
