@@ -6,7 +6,6 @@ const { exec } = require('child_process');
 const PORT = process.env.PORT || 3000;
 const path = require('path');
 const multer = require('multer');
-
 // Configure storage for multer
 const storage = multer.diskStorage({
   // Specify the destination directory where files should be stored
@@ -20,12 +19,18 @@ const storage = multer.diskStorage({
   }
 });
 
+
+const upload = multer({ dest: 'uploads/' });
+const XLSX = require('xlsx');
+const { spawn } = require('child_process');
+
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
 // Create multer instance configured with the storage engine
-const upload = multer({ storage: storage });
+//const upload = multer({ storage: storage });
 
 app.get('/upload', (req, res) => {
   res.sendFile(__dirname + '/upload.html');
@@ -34,20 +39,39 @@ app.get('/upload', (req, res) => {
 app.post('/upload', upload.single('routeFile'), (req, res) => {
   if (req.file) {
     console.log(`Received file: ${req.file.path}`);
-    // Call your Node.js script and pass the path of the uploaded file
-    exec(`node importCsvToDb.js "${req.file.path}"`, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`exec error: ${error}`);
-        return res.status(500).send(`Failed to process file. Error: ${error.message}`);
-      }
-      console.log(`stdout: ${stdout}`);
+
+    // Read the Excel file
+    const workbook = XLSX.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, skipRows: 2 });
+
+    // Convert the data to CSV format
+    const csv = XLSX.utils.sheet_to_csv(worksheet, { skipRows: 2 });
+
+    // Save the CSV file
+    const csvFilePath = `${req.file.path}.csv`;
+    require('fs').writeFileSync(csvFilePath, csv);
+
+    // Spawn a child process to run the Python script
+    const pythonProcess = spawn('python', ['process_data.py', csvFilePath]);
+
+    pythonProcess.stdout.on('data', (data) => {
+      console.log(`Python script output: ${data}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      console.error(`Python script error: ${data}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      console.log(`Python script exited with code ${code}`);
       res.send('File uploaded and processed successfully.');
     });
   } else {
     res.status(400).send('No file uploaded.');
   }
 });
-
 // Database connection
 let db = new sqlite3.Database('./myapp.db', (err) => {
   if (err) {
