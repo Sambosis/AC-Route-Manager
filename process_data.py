@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 import os
 from tqdm import tqdm
+from urllib.parse import quote_plus
 
 def add_lat_long_to_df(dataset):
     api_key = "8dad1cc087374a6ba988e6371e45911b"
