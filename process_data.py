@@ -25,7 +25,7 @@ def add_lat_long_to_df(dataset):
             columns=["CUST", "Latitude", "Longitude"])
     print("Updating coordinates...")
     # Iterate through the dataset
-    for i in tqdm(range(len(dataset)-1)):
+    for i in range(len(dataset)-1):
         cust = str(dataset.at[i, "CUST"])  # Ensure CUST is treated as a string
 
         # Check if the customer is already in the coordinates DataFrame
@@ -141,4 +141,5 @@ def process_data(csv_file):
 
 if __name__ == '__main__':
     csv_file = sys.argv[1]
+    print(f"Processing data from {csv_file}")
     process_data(csv_file)
