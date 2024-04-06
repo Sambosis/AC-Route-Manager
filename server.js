@@ -31,10 +31,11 @@ app.post('/upload', upload.single('routeFile'), (req, res) => {
       const workbook = XLSX.readFile(req.file.path);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-
+      console.log('Sheet name:', sheetName);
       try {
         const csv = XLSX.utils.sheet_to_csv(worksheet, { skipRows: 2 });
         const csvFilePath = `${req.file.path}.csv`;
+        console.log('CSV file path:', csvFilePath);
         require('fs').writeFileSync(csvFilePath, csv);
 
         const pythonProcess = spawn('python', ['process_data.py', csvFilePath]);
