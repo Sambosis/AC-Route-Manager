@@ -33,7 +33,7 @@ app.post('/upload', upload.single('routeFile'), (req, res) => {
       const worksheet = workbook.Sheets[sheetName];
       console.log('Sheet name:', sheetName);
       try {
-        const csv = XLSX.utils.sheet_to_csv(worksheet, { skipRows: 2 });
+        const csv = XLSX.utils.sheet_to_csv(worksheet, { skipRows: 3 });
         const csvFilePath = `${req.file.path}.csv`;
         console.log('CSV file path:', csvFilePath);
         require('fs').writeFileSync(csvFilePath, csv);
