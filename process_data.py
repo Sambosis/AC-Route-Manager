@@ -93,8 +93,55 @@ def add_lat_long_to_df(dataset):
     # save dataset to csv
 
 def haversine_vectorized(latitudes, longitudes, depot_index=0, unit="kilometers"):
-    # Your existing haversine_vectorized function
-    # ... (keep the existing implementation)
+    """
+    Vectorized version of the Haversine formula to calculate the pairwise distance matrix between two sets of geographical points.
+    Additionally incorporates custom logic to simulate the 'distance_callback' adjustments.
+    """
+    # Convert latitude and longitude from degrees to radians
+    lat_rad = np.radians(latitudes)
+    lon_rad = np.radians(longitudes)
+
+    # Expand lat_rad and lon_rad into 2D arrays for broadcasting
+    lat_rad_matrix = np.expand_dims(lat_rad, axis=0)
+    lon_rad_matrix = np.expand_dims(lon_rad, axis=0)
+
+    # Compute pairwise differences
+    dlat = lat_rad_matrix - lat_rad_matrix.T
+    dlon = lon_rad_matrix - lon_rad_matrix.T
+
+    # Haversine formula
+    a = (
+        np.sin(dlat / 2.0) ** 2
+        + np.cos(lat_rad_matrix) * np.cos(lat_rad_matrix.T) *
+        np.sin(dlon / 2.0) ** 2
+    )
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    distance_matrix = EARTH_RADIUS_KM * c  # Distance in kilometers
+
+    # Convert distance according to the unit
+    conversion_factors = {
+        "miles": 0.621371,
+        "kilometers": 1,
+        "nautical miles": 0.539957,
+    }
+    if unit in conversion_factors:
+        distance_matrix *= conversion_factors[unit]
+    else:
+        raise ValueError("Invalid unit")
+
+    # Custom logic adjustment based on distance_callback rules
+    # Adding additional cost based on depot distances
+    for from_node in range(len(latitudes)):
+        from_depot_cost = distance_matrix[depot_index][from_node]
+        for to_node in range(len(latitudes)):
+            to_depot_cost = distance_matrix[depot_index][to_node]
+            if to_depot_cost > from_depot_cost:
+                distance_matrix[from_node][to_node] += 11
+    # set the first row and column to 0
+    distance_matrix[0] = 0
+    distance_matrix[:, 0] = 0
+    
+    return distance_matrix
 
 def create_distance_matrix(dataset):
     latitudes = dataset["Latitude"].to_numpy()
