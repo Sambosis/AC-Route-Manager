@@ -2,8 +2,13 @@ import sys
 import pandas as pd
 import sqlite3
 import os
-from tqdm import tqdm
+import requests
 from urllib.parse import quote_plus
+from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+import numpy as np
+
+# Constants
+EARTH_RADIUS_KM = 6371  # Earth's radius in kilometers
 
 def add_lat_long_to_df(dataset):
     api_key = "8dad1cc087374a6ba988e6371e45911b"
@@ -87,18 +92,125 @@ def add_lat_long_to_df(dataset):
 
     # save dataset to csv
 
+def haversine_vectorized(latitudes, longitudes, depot_index=0, unit="kilometers"):
+    # Your existing haversine_vectorized function
+    # ... (keep the existing implementation)
 
-# Constants
-EARTH_RADIUS_KM = 6371  # Earth's radius in kilometers
-R = 6371.0
+def create_distance_matrix(dataset):
+    latitudes = dataset["Latitude"].to_numpy()
+    longitudes = dataset["Longitude"].to_numpy()
+    distance_matrix = haversine_vectorized(latitudes, longitudes, unit="kilometers")
+    distance_matrix *= 10
+    distance_matrix += 0.9999
+    distance_matrix = distance_matrix.astype(int)
+    mask = ~np.eye(distance_matrix.shape[0], dtype=bool)
+    distance_matrix = np.where(mask & (distance_matrix == 0), distance_matrix + 1, distance_matrix)
+    return distance_matrix
 
+def create_data_model(dataset, distance_matrix):
+    data = {}
+    data["num_vehicles"] = 50  # Adjust as needed
+    data["depot"] = 0
+    data["demands"] = dataset["Companion"].tolist()
+    data["demands2"] = dataset["Machine"].tolist()
+    data["distance_matrix"] = distance_matrix.tolist()
+    data["vehicle_capacities"] = [1900] * data["num_vehicles"]  # Adjust as needed
+    data["vehicle_capacities2"] = [3500] * data["num_vehicles"]  # Adjust as needed
+    return data
 
+def create_routing_model(data, manager):
+    routing = pywrapcp.RoutingModel(manager)
+
+    def distance_callback(from_index, to_index):
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data["distance_matrix"][from_node][to_node]
+
+    transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+
+    def demand_callback(from_index):
+        from_node = manager.IndexToNode(from_index)
+        return data["demands"][from_node]
+
+    demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
+    routing.AddDimensionWithVehicleCapacity(
+        demand_callback_index,
+        0,  # null capacity slack
+        data["vehicle_capacities"],  # vehicle maximum capacities
+        True,  # start cumul to zero
+        "Capacity",
+    )
+
+    def demand_callback2(from_index):
+        from_node = manager.IndexToNode(from_index)
+        return data["demands2"][from_node]
+
+    demand_callback_index2 = routing.RegisterUnaryTransitCallback(demand_callback2)
+    routing.AddDimensionWithVehicleCapacity(
+        demand_callback_index2,
+        0,  # null capacity slack
+        data["vehicle_capacities2"],  # vehicle maximum capacities
+        True,  # start cumul to zero
+        "Capacity2",
+    )
+
+    return routing
+
+def solve_routing_problem(data, manager, routing):
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.first_solution_strategy = (
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    )
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    )
+    search_parameters.time_limit.seconds = 300  # Adjust as needed
+    solution = routing.SolveWithParameters(search_parameters)
+    return solution
+
+def iterative_improvement(data, manager, routing, initial_solution, max_iterations=100):
+    best_solution = initial_solution
+    best_objective = initial_solution.ObjectiveValue()
+
+    for _ in range(max_iterations):
+        search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+        search_parameters.local_search_metaheuristic = (
+            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+        )
+        search_parameters.time_limit.seconds = 10  # Short time limit for each iteration
+        
+        new_solution = routing.SolveFromAssignmentWithParameters(
+            best_solution.Assignment(), search_parameters
+        )
+        
+        if new_solution:
+            new_objective = new_solution.ObjectiveValue()
+            if new_objective < best_objective:
+                best_solution = new_solution
+                best_objective = new_objective
+
+    return best_solution
+
+def update_dataset_with_solution(dataset, manager, routing, solution):
+    updated_dataset = dataset.copy()
+    for vehicle_id in range(data["num_vehicles"]):
+        index = routing.Start(vehicle_id)
+        route_number = vehicle_id + 1
+        stop_number = 1
+        while not routing.IsEnd(index):
+            node_index = manager.IndexToNode(index)
+            updated_dataset.loc[node_index, "NEW RT"] = route_number
+            updated_dataset.loc[node_index, "NEW STOP"] = stop_number
+            index = solution.Value(routing.NextVar(index))
+            stop_number += 1
+    return updated_dataset
 
 def process_data(csv_file):
-    # Read the CSV file into a DataFrame, skipping the header row
+    # Read the uploaded file into a DataFrame
     df = pd.read_csv(csv_file, header=0)
 
-    # Perform the desired transformations on the DataFrame
+    # Perform initial data preprocessing
     new_df = pd.DataFrame({
         'BR': df['BR'],
         'RT': df['RT'],
@@ -123,21 +235,36 @@ def process_data(csv_file):
         'Companion': df['COMP AVG']
     })
 
-    # Assign a unique identifier to each stop based on its order within the customer's visits
     new_df['Multi-Stop'] = new_df.groupby('CUST').cumcount() + 1
 
     # Add latitude and longitude to the DataFrame
     new_df = add_lat_long_to_df(new_df)
 
+    # Create distance matrix
+    distance_matrix = create_distance_matrix(new_df)
+
+    # Setup the OR problem
+    data = create_data_model(new_df, distance_matrix)
+    manager = pywrapcp.RoutingIndexManager(len(data["distance_matrix"]), data["num_vehicles"], data["depot"])
+    routing = create_routing_model(data, manager)
+
+    # Solve the problem
+    initial_solution = solve_routing_problem(data, manager, routing)
+
+    # Perform iterative improvement
+    best_solution = iterative_improvement(data, manager, routing, initial_solution)
+
+    # Update the dataset with the optimized solution
+    final_dataset = update_dataset_with_solution(new_df, manager, routing, best_solution)
+
     # Connect to the SQLite database
     conn = sqlite3.connect('myapp.db')
 
-    # Load the DataFrame into the database
-    new_df.to_sql('route_info', conn, if_exists='replace', index=False)
+    # Load the final DataFrame into the database
+    final_dataset.to_sql('route_info', conn, if_exists='replace', index=False)
 
     # Close the database connection
     conn.close()
-
 
 if __name__ == '__main__':
     csv_file = sys.argv[1]
