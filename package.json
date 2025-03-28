@@ -21,9 +21,9 @@
     "@vercel/speed-insights": "^1.0.10",
     "child_process": "^1.0.2",
     "csv-parser": "^3.0.0",
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "multer": "^1.4.5-lts.1",
-    "socket.io": "^4.7.5",
+    "socket.io": "^4.8.1",
     "sqlite3": "^5.1.7",
     "xlsx": "^0.18.5"
   },
